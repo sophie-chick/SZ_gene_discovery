@@ -1,23 +1,13 @@
 # setup 
 library(tidyverse) 
 library(data.table) 
-#detach("package:purrr", unload = TRUE) # stop purrr::transpose masking data.table::transpose
-#install.packages('/scratch/c.c21070635/2_meta-analysis/files/packages/mice_3.15.0.tar.gz', repos=NULL)
-#install.packages('/scratch/c.c21070635/2_meta-analysis/files/packages/operator.tools_1.6.3.tar.gz', repos=NULL)
-#install.packages('/scratch/c.c21070635/2_meta-analysis/files/packages/formula.tools_1.7.1.tar.gz', repos=NULL)
-#install.packages('/scratch/c.c21070635/2_meta-analysis/files/packages/logistf_1.25.0.tar.gz', repos=NULL)
 library(logistf) 
-#install.packages('common') 
-#library(common) # for superscripts 
 
-# uses gene sample tables imported in loop 
-  
-# load gene sets
-constrained_genes = read.table('/scratch/c.c21070635/2_meta-analysis/data/gnomad_pLI_Ensemble.tsv',
-                               header=TRUE)$Ensembl_ID # 3,051 genes 
+# loading gene sets
+constrained_genes = read.table('/scratch/c.c21070635/2_meta-analysis/data/gnomad_pLI_Ensemble.tsv', header=TRUE)$Ensembl_ID 
 schema = read.delim('/scratch/c.c21070635/2_meta-analysis/data/SCHEMA_gene_results_paper_with_ids.tsv')
-sig_genes = (schema %>% filter(P.meta <= 2.14e-06 & !is.na(P.meta)))$gene_id 
-sig_genes = c(sig_genes,c("ENSG00000023516","ENSG00000167978")) #akap11 and srrm2 
+sig_genes = c((schema %>% filter(P.meta <= 2.14e-06 & !is.na(P.meta)))$gene_id, 
+              c("ENSG00000023516","ENSG00000167978"))
 sig_fdr = (schema %>% filter(Q.meta <= 0.05 & !is.na(Q.meta)))$gene_id 
 fdr_genes = sig_fdr[!(sig_fdr %in% sig_genes)] 
 constrained_only = constrained_genes[!(constrained_genes %in% sig_fdr)]
@@ -28,74 +18,62 @@ gene_id_lists = list("constrained" = constrained_genes,
                      "fdr" = fdr_genes) 
 
 # sample table for covariates 
-sample_table = read.table('/scratch/c.c21070635/2_meta-analysis/data/SZ_AD_hail0.2_final_sample_table.tsv', 
-                          header = T, sep = "\t", stringsAsFactors = F) %>% 
-  filter(Final_sample_exclusions == 0) 
-sample_table$pheno = ifelse(sample_table$SZ_AD_con == "SZ", 1, 0) 
-# need to remove the additional 8 samples so it lines up 
-clozuk_list = c("ClozUKII_Welsh_30101856_Ca","ClozUKII_London_30033686_Ca","ClozUKII_Welsh_30148457_Ca",
-                "ClozUKII_London_30066697_Ca","ClozUKII_London_30035834_Ca","ClozUKII_London_30034061_Ca") 
-contributing_list = c("ClozUKII_Scotland_30034228_Ca","F0273_03_S1_Ca")
-combined_list = c(clozuk_list,contributing_list)
-sample_table = sample_table %>% 
-  filter(!(SAMPLE %in% combined_list)) %>%
-  select(SAMPLE, pheno, predicted_sex, 
-         UK_PC1, UK_PC2, UK_PC3, UK_PC4, UK_PC5, UK_PC6, UK_PC7, UK_PC8, UK_PC9, UK_PC10) %>%
-  rename(Sample = SAMPLE)
+sample_table = read.delim("/scratch/c.c21070635/2_meta-analysis/data/SZ_AD_hail0.2_final_sample_table_full.tsv")
 
-# writing for PTVs first 
+# importing in-house gene sample tables for each variant class 
+# testing for case enrichment at minor allele counts (MAC) of 1 (singletons not in gnomAD)
+# and 5 (MAC <=5 in in-house sample and MAC <=5 in gnomAD)
+# using Firth's penalised logistic regressions 
 
-input = list() 
-counts = list() 
-output = list() 
+input = list(); counts = list(); output = list() 
 
 for (mac in c("1","5")) {
   
   cat(paste("\nMAC", mac, "\n", sep="")) 
-  input[[mac]] = list() 
-  counts[[mac]] = list() 
-  output[[mac]] = list() 
+  # constructing list of lists
+  input[[mac]] = list(); counts[[mac]] = list(); output[[mac]] = list() 
   
   for (variant in c("ptv","mpc3","mpc2_3","syn")) {
     
     cat(paste("Importing ", variant, "\n", sep="")) 
-    input[[mac]][[variant]] = list() 
-    counts[[mac]][[variant]] = list() 
-    output[[mac]][[variant]] = list() 
     
-    input[[mac]][[variant]] = read.table(paste("/scratch/c.c21070635/2_meta-analysis/data_processed/in_house_gene_sample_table_mac", mac, "/", variant, ".tsv.gz", sep=""), 
-                                         header=T, sep="\t", check.names = FALSE) %>%
-      filter(!is.na(gene_id)) 
+    mac = "5"; variant = "syn"
+    input[[mac]][[variant]] = read.table(paste0("/scratch/c.c21070635/2_meta-analysis/data_processed/in_house_gene_sample_table_mac", mac, "/", variant, ".tsv.gz"), 
+                                         header=T, sep="\t", check.names = FALSE) 
+    # transposing so that samples are rows 
     input[[mac]][[variant]] = transpose(input[[mac]][[variant]], keep.names = "Sample", make.names = "gene_id") 
-    
+    View(input[[mac]][[variant]])
   } 
   
-  # making table with all_syn column 
+  # making table with all_syn column for use as covariate 
   input[[mac]][["syn_counts"]] = input[[mac]][["syn"]] %>% 
     mutate(all_syn = rowSums(across(where(is.numeric)))) %>% 
     select(Sample, all_syn) 
   
   for (variant in c("ptv","mpc3","mpc2_3","syn")) {
     
-    # counting across gene sets 
+    # counting variants across gene sets 
     for (gene_set in c("constrained","constrained_only","sig","fdr")) {
       
       counts[[mac]][[variant]][[gene_set]] = input[[mac]][[variant]] %>%
         select(Sample, one_of(gene_id_lists[[gene_set]])) %>% # selects all the constrained genes that are in the columns 
-        mutate(count = rowSums(across(where(is.numeric)))) %>% # adds sum column 
-        select(Sample, count) # selects sum column - this is for each sample still 
+        mutate(count = rowSums(across(where(is.numeric)))) %>% # produces sum column 
+        select(Sample, count) # selects sum column with total for each sample  
     
-      # avoiding fdr mpc >3
+      # excluding any tests with no variants (mpc >3 variants in fdr genes) 
       if (sum(counts[[mac]][[variant]][[gene_set]][["count"]]) > 0) {
         
-        # merging on PCs, all_syn and predicted_sex 
+        # merging each counts table with sample_table containing PCs, predicted_sex 
         counts[[mac]][[variant]][[gene_set]] = merge(
           counts[[mac]][[variant]][[gene_set]], sample_table, by="Sample", all=TRUE) 
+        # merging each table with table containing all_syn 
         counts[[mac]][[variant]][[gene_set]] = merge(
           counts[[mac]][[variant]][[gene_set]], input[[mac]][["syn_counts"]], 
           by="Sample", all=TRUE) 
         
-        # getting beta, SE, OR, lower, upper, P 
+        # regressing phenotype on variant counts, covarying for PCs, all_syn and predicted_sex
+        # except for synonymous variant tests where all_syn is not used as a covariate 
+        # saving test output encompassing beta, SE, OR, lower, upper, P 
         if (variant != "syn") {
           result = summary(logistf(data = counts[[mac]][[variant]][[gene_set]], 
                                    pheno ~ count + UK_PC1 + UK_PC2 + UK_PC3 +
@@ -108,6 +86,7 @@ for (mac in c("1","5")) {
                                      UK_PC9 + UK_PC10 + predicted_sex)) 
         }
         
+        # extracting counts, beta, SE, OR, CI lower bound, CI upper bound, P 
         output[[mac]][[variant]][[gene_set]] = 
           data.frame("case_vars" = by(counts[[mac]][[variant]][[gene_set]][["count"]], 
                                       counts[[mac]][[variant]][[gene_set]][["pheno"]], sum)[["1"]], 
@@ -122,6 +101,7 @@ for (mac in c("1","5")) {
         
       } else {
         
+        # filling in rows of table where there are no variants of that class in a gene set
         output[[mac]][[variant]][[gene_set]] = 
           data.frame("case_vars" = 0, "control_vars" = 0, "beta" = NA, "SE" = NA, 
                      "OR" = NA, "lower" = NA, "upper" = NA, "P" = NA) 
@@ -132,47 +112,29 @@ for (mac in c("1","5")) {
       
     }
     
-    # variant level
+    # variant level - rbinding results dataframes 
     output[[mac]][[variant]] = do.call(rbind, output[[mac]][[variant]])
     output[[mac]][[variant]]$Variant = variant 
     
   }
   
-  # MAC level 
+  # MAC level - rbinding results dataframes 
   output[[mac]] = do.call(rbind, output[[mac]])
   output[[mac]]$MAC = mac 
   
 }
 
+# rbinding results dataframes
 output = do.call(rbind, output)
 row.names(output) = NULL 
 
+# adding variant rate columns 
 output = output %>%
   mutate(case_var_rate = case_vars/4650, 
          control_var_rate = control_vars/5719) %>% 
   select(Gene_set, Variant, MAC, case_vars, case_var_rate, control_vars, control_var_rate, 
          beta, SE, OR, lower, upper, P) 
 
+# writing 
 write.table(output, 
             "/scratch/c.c21070635/2_meta-analysis/output/1_in_house_analysis/1_gene_set_table.tsv", sep="\t")
-
-output = read.delim("/scratch/c.c21070635/2_meta-analysis/output/1_in_house_analysis/1_gene_set_table.tsv")
-output = output %>%
-  filter(MAC == 5) %>% 
-  mutate(Variant = recode(Variant, "ptv"="PTV", "mpc3"="Missense (MPC >3)",
-                          "mpc2_3"="Missense (MPC 2-3)","syn"="Synonymous"),
-         Gene_set = recode(Gene_set, "constrained"="Constrained genes\n(n=3,051)",
-                           "constrained_only"="Constrained only",
-                           "sig"="Significant genes\n(n=12)",
-                           "fdr"="FDR<5% genes\n(n=20)")) %>%
-  filter(Gene_set %in% c(#"Constrained genes\n(n=3,051)",
-                         "Significant genes\n(n=12)",
-                         "FDR<5% genes\n(n=20)"
-                         )) 
-output = output[order(factor(output$Gene_set,levels=c(#"Constrained genes\n(n=3,051)",
-                                                      "Significant genes\n(n=12)",
-                                                      "FDR<5% genes\n(n=20)")),
-                      factor(output$Variant,levels=c("PTV", "Missense (MPC >3)",
-                                                     "Missense (MPC 2-3)","Synonymous"))),] 
-
-
