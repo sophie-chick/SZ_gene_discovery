@@ -37,12 +37,11 @@ for (mac in c("1","5")) {
     
     cat(paste("Importing ", variant, "\n", sep="")) 
     
-    mac = "5"; variant = "syn"
     input[[mac]][[variant]] = read.table(paste0("/scratch/c.c21070635/2_meta-analysis/data_processed/in_house_gene_sample_table_mac", mac, "/", variant, ".tsv.gz"), 
                                          header=T, sep="\t", check.names = FALSE) 
     # transposing so that samples are rows 
     input[[mac]][[variant]] = transpose(input[[mac]][[variant]], keep.names = "Sample", make.names = "gene_id") 
-    View(input[[mac]][[variant]])
+
   } 
   
   # making table with all_syn column for use as covariate 
@@ -76,14 +75,12 @@ for (mac in c("1","5")) {
         # saving test output encompassing beta, SE, OR, lower, upper, P 
         if (variant != "syn") {
           result = summary(logistf(data = counts[[mac]][[variant]][[gene_set]], 
-                                   pheno ~ count + UK_PC1 + UK_PC2 + UK_PC3 +
-                                     UK_PC4 + UK_PC5 + UK_PC6 + UK_PC7 + UK_PC8 + 
-                                     UK_PC9 + UK_PC10 + all_syn + predicted_sex)) 
+                                   pheno ~ count + PC1 + PC2 + PC3 + PC4 + PC5 + PC6 + 
+                                     PC7 + PC8 + PC9 + PC10 + all_syn + predicted_sex)) 
         } else {
           result = summary(logistf(data = counts[[mac]][[variant]][[gene_set]], 
-                                   pheno ~ count + UK_PC1 + UK_PC2 + UK_PC3 +
-                                     UK_PC4 + UK_PC5 + UK_PC6 + UK_PC7 + UK_PC8 + 
-                                     UK_PC9 + UK_PC10 + predicted_sex)) 
+                                   pheno ~ count + PC1 + PC2 + PC3 + PC4 + PC5 + PC6 + 
+                                     PC7 + PC8 + PC9 + PC10 + predicted_sex)) 
         }
         
         # extracting counts, beta, SE, OR, CI lower bound, CI upper bound, P 
