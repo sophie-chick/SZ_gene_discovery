@@ -30,6 +30,7 @@ input = list(); counts = list(); output = list()
 for (mac in c("1","5")) {
   
   cat(paste("\nMAC", mac, "\n", sep="")) 
+  
   # constructing list of lists
   input[[mac]] = list(); counts[[mac]] = list(); output[[mac]] = list() 
   
