@@ -10,6 +10,18 @@ n_male_control = 2729
 n_female_case = 1321 
 n_female_control = 2990 
 
+# importing combined strata-level table and splitting into variant classes 
+combined = read.delim("/scratch/c.c21070635/2_meta-analysis/output/3_meta-analysis/2_meta_rvas/1_combined_meta_gene_table.tsv") 
+meta = list() 
+meta[["ptv"]] = combined %>%
+    filter(variant_class == "PTV") 
+meta[["ptv_mpc3"]] = combined %>%
+    filter(variant_class == "PTV+MPC3") 
+meta[["ptv_mpc2"]] = combined %>%
+    filter(variant_class == "PTV+MPC2") 
+meta[["mpc2"]] = combined %>% 
+    filter(variant_class == "MPC2") 
+
 # nonpar gene list
 nonpar_genes = read.delim("/scratch/c.c21070635/2_meta-analysis/data_processed/SZ_AD_nonpar_gene_list.tsv")$gene_id
 
@@ -51,15 +63,11 @@ no_list = c("EUR_exomes_case_no", "EUR_exomes_control_no",
 
 # importing and reshaping
 variant_list = list("ptv", "ptv_mpc3", "ptv_mpc2", "mpc2") 
-meta = list() 
-
 for (variant in variant_list) {
-  
+
   cat(paste((if (variant != "ptv") {"\n"} else {""}), "Converting ", variant, " from long to wide:\n", sep=""))
-  
-  meta[[variant]] = read.delim(paste("/scratch/c.c21070635/2_meta-analysis/output/3_meta-analysis/2_meta_rvas/1_meta_gene_table_", variant, ".tsv", sep="")) 
-  cat(paste("Reading in ", length(unique(meta[[variant]]$gene_id)), " genes\n", sep=""))
-  
+  cat(paste("Read in ", length(unique(meta[[variant]]$gene_id)), " genes\n", sep=""))
+
   cat("Reshaping...\n")
   # preparing for long to wide conversion
   meta[[variant]]$group = gsub("-", "_", meta[[variant]]$group)
