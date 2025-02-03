@@ -68,6 +68,9 @@ for (variant in variant_list) {
   cat(paste((if (variant != "ptv") {"\n"} else {""}), "Converting ", variant, " from long to wide:\n", sep=""))
   cat(paste("Read in ", length(unique(meta[[variant]]$gene_id)), " genes\n", sep=""))
 
+  # removing variant class column
+  meta[[variant]]$variant_class = NULL 
+  
   cat("Reshaping...\n")
   # preparing for long to wide conversion
   meta[[variant]]$group = gsub("-", "_", meta[[variant]]$group)
