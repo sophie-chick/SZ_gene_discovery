@@ -11,7 +11,7 @@ n_female_case = 1321
 n_female_control = 2990 
 
 # importing combined strata-level table and splitting into variant classes 
-combined = read.delim("/scratch/c.c21070635/2_meta-analysis/output/3_meta-analysis/2_meta_rvas/1_combined_meta_gene_table.tsv") 
+combined = read.delim("~/repos/SZ_gene_discovery/combined_meta_gene_table.tsv") 
 meta = list() 
 meta[["ptv"]] = combined %>%
     filter(variant_class == "PTV") 
@@ -23,12 +23,17 @@ meta[["mpc2"]] = combined %>%
     filter(variant_class == "MPC2") 
 
 # nonpar gene list
-nonpar_genes = read.delim("/scratch/c.c21070635/2_meta-analysis/data_processed/SZ_AD_nonpar_gene_list.tsv")$gene_id
+nonpar_genes = read.delim("~/repos/SZ_gene_discovery/SZ_AD_nonpar_gene_list.tsv")$gene_id
 
 # schema and mpc genes for filling in table 
-schema_genes = read.delim("/scratch/c.c21070635/2_meta-analysis/data/gene_lists/SCHEMA_gene_results_paper_with_ids.tsv")
-mpc2_genes = read.table("/scratch/c.c21070635/2_meta-analysis/data/gene_lists/MPC2_genes.tsv", header=TRUE) 
-mpc3_genes = read.table("/scratch/c.c21070635/2_meta-analysis/data/gene_lists/MPC3_genes.tsv", header=TRUE) 
+schema_genes = read.delim("~/repos/SZ_gene_discovery/SCHEMA_gene_results_paper_with_ids.tsv")[c('gene_id','gene_symbol')] %>%
+  filter(!(gene_id %in% c("ENSG00000119772","ENSG00000168769","ENSG00000171456")))
+mpc2_genes = read.table('~/repos/SZ_gene_discovery/MPC2_genes.tsv', header=TRUE) %>%
+  rename(gene_id = Gene.ID) %>%
+  filter(!(gene_id %in% c("ENSG00000119772","ENSG00000168769","ENSG00000171456")))
+mpc3_genes = read.table('~/repos/SZ_gene_discovery/MPC3_genes.tsv', header=TRUE) %>%
+  rename(gene_id = Gene.ID) %>%
+  filter(!(gene_id %in% c("ENSG00000119772","ENSG00000168769","ENSG00000171456")))
 
 # AC list and "no" column lists ("no" = number of cases or controls not carrying variants)
 # for filling in NAs after reshape
@@ -520,8 +525,7 @@ for (variant in c("ptv","ptv_mpc3","ptv_mpc2","mpc2")) {
 
 # importing and splitting de novo counts 
 de_novo = list() 
-de_novo_counts = read.table("/scratch/c.c21070635/2_meta-analysis/data_processed/de_novo_gene_table.tsv", 
-                            header=TRUE)
+de_novo_counts = read.table("~/repos/SZ_gene_discovery/de_novo_gene_table.tsv", header=TRUE)
 de_novo[["ptv"]] = de_novo_counts %>%
   select(gene_id, gene_symbol, PTV_count, PTV_p_val) %>%
   rename(de_novo_count = PTV_count, de_novo_p = PTV_p_val)
@@ -586,5 +590,5 @@ for (variant in c("ptv","ptv_mpc3","ptv_mpc2","mpc2")) {
 
 # writing  
 for (variant in c("ptv","ptv_mpc3","ptv_mpc2","mpc2")) { 
-  write_tsv(meta[[variant]], paste("/scratch/c.c21070635/2_meta-analysis/output/3_meta-analysis/2_meta_rvas/2_meta_gene_results_", variant, ".tsv", sep=""))  
+  write_tsv(meta[[variant]], paste("~/repos/SZ_gene_discovery/meta_gene_results_", variant, ".tsv", sep=""))  
 }
