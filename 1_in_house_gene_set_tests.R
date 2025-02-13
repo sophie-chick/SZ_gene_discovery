@@ -4,8 +4,8 @@ library(data.table)
 library(logistf) 
 
 # loading gene sets
-constrained_genes = read.table('/scratch/c.c21070635/2_meta-analysis/data/gnomad_pLI_Ensemble.tsv', header=TRUE)$Ensembl_ID 
-schema = read.delim('/scratch/c.c21070635/2_meta-analysis/data/SCHEMA_gene_results_paper_with_ids.tsv')
+constrained_genes = read.table("~/repos/SZ_gene_discovery/gnomad_pLI_Ensemble.tsv", header=TRUE)$Ensembl_ID 
+schema = read.delim("~/repos/SZ_gene_discovery/SCHEMA_gene_results_paper_with_ids.tsv")
 sig_genes = c((schema %>% filter(P.meta <= 2.14e-06 & !is.na(P.meta)))$gene_id, 
               c("ENSG00000023516","ENSG00000167978"))
 sig_fdr = (schema %>% filter(Q.meta <= 0.05 & !is.na(Q.meta)))$gene_id 
@@ -18,7 +18,7 @@ gene_id_lists = list("constrained" = constrained_genes,
                      "fdr" = fdr_genes) 
 
 # sample table for covariates 
-sample_table = read.delim("/scratch/c.c21070635/2_meta-analysis/data/SZ_AD_hail0.2_final_sample_table_full.tsv")
+sample_table = read.delim("~/repos/SZ_gene_discovery/SZ_AD_hail0.2_final_sample_table_full.tsv")
 
 # importing in-house gene sample tables for each variant class 
 # testing for case enrichment at minor allele counts (MAC) of 1 (singletons not in gnomAD)
@@ -38,7 +38,7 @@ for (mac in c("1","5")) {
     
     cat(paste("Importing ", variant, "\n", sep="")) 
     
-    input[[mac]][[variant]] = read.table(paste0("/scratch/c.c21070635/2_meta-analysis/data_processed/in_house_gene_sample_table_mac", mac, "/", variant, ".tsv.gz"), 
+    input[[mac]][[variant]] = read.table(paste0("~/repos/SZ_gene_discovery/in_house_gene_sample_table_mac", mac, "/", variant, ".tsv.gz"), 
                                          header=T, sep="\t", check.names = FALSE) 
     # transposing so that samples are rows 
     input[[mac]][[variant]] = transpose(input[[mac]][[variant]], keep.names = "Sample", make.names = "gene_id") 
@@ -135,4 +135,4 @@ output = output %>%
 
 # writing 
 write.table(output, 
-            "/scratch/c.c21070635/2_meta-analysis/output/1_in_house_analysis/1_gene_set_table.tsv", sep="\t")
+            "~/repos/SZ_gene_discovery/1_gene_set_table.tsv", sep="\t")
